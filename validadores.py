@@ -1,11 +1,24 @@
 # ------------------------------------------------------------------
 # validadores.py — Reglas que definen qué es un dato válido.
 #
-# Funciones PURAS: no usan input() ni print(). Reciben texto y
-# devuelven True/False (validar_numero_documento devuelve "" si el
-# dato es válido, o un mensaje de error específico).
-# No importa de ningún otro módulo del proyecto: es una "hoja" del
-# árbol de dependencias, imposible de crear ciclos de importación.
+# Decisiones de lógica (el porqué, no el qué):
+# - Funciones PURAS (sin input/print): se prueban llamándolas
+#   directamente, sin simular un usuario, y cualquier capa puede
+#   usarlas. No importan nada del proyecto: es la "hoja" del árbol
+#   de dependencias, imposible de crear ciclos de importación.
+# - Alfabetos EXPLÍCITOS y no .isalpha(): .isalpha() acepta letras de
+#   CUALQUIER alfabeto (cirílico, chino...), y eso era justamente el
+#   crash del PDF (CP-065/CP-117: Helvetica/fpdf2 no imprime no
+#   latinos). Con los alfabetos como constantes la regla es visible y
+#   auditable: todo lo que llega a la boleta es latin-1 imprimible.
+# - Validar a la ENTRADA y no a la salida: es más barato rechazar un
+#   correo imposible en la captura que reventar el ticket tres pasos
+#   después, cuando el expediente ya está registrado.
+# - Sin expresiones regulares: cada regla del correo se ve y se
+#   explica con métodos de string, al nivel del curso.
+# - validar_numero_documento devuelve "" o un mensaje de error (no
+#   True/False): el mensaje ES el texto que se muestra al usuario;
+#   así no hace falta una segunda estructura de códigos de error.
 # ------------------------------------------------------------------
 
 DIGITOS = "0123456789"
@@ -14,10 +27,11 @@ DIGITOS = "0123456789"
 # (chino, árabe, cirílico, etc.) se rechaza en la validación de nombres,
 # garantizando que la boleta PDF nunca falle por caracteres no latinos.
 LETRAS_LATINAS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZáéíóúüñÁÉÍÓÚÜÑ"
-# Signos de puntuación permitidos en los textos libres (domicilio, asunto).
-# Todos son representables en latin-1, el alfabeto de la fuente Helvetica
+# Signos permitidos en los textos libres (domicilio, asunto) y en el correo.
+# Incluye _ (común en correos: user_name@dominio.com). Todos son
+# representables en latin-1, el alfabeto de la fuente Helvetica
 # de la boleta PDF: garantiza que el PDF nunca falle por codificación.
-SIMBOLOS_LIBRES = " .,:;-()¡!¿?'\"#%&$@°"
+SIMBOLOS_LIBRES = " .,:;-()¡!¿?'\"_#%&$@°"
 
 
 # ------------------------------------------------------------------
@@ -121,8 +135,16 @@ def telefono_o_vacio(texto):
 def correo_valido(texto):
     """Descompuesto con funciones de strings, sin expresiones regulares:
     una sola @, texto antes y después, dominio con al menos un punto,
-    sin puntos pegados o en los extremos del dominio, sin espacios."""
+    sin puntos pegados o en los extremos del dominio, sin espacios.
+    Además, solo caracteres del alfabeto latino (defensa del PDF)."""
     if " " in texto:
+        return False
+
+    # Defensa V1: un correo como user@ドメイン.com cumple las reglas de
+    # formato, pero fpdf2 no puede imprimirlo con Helvetica y mataba el
+    # programa al generar el ticket. El alfabeto incluye @ . - _ y
+    # dígitos, así que un correo normal pasa sin problema.
+    if not texto_libre_valido(texto):
         return False
 
     partes = texto.split("@")

@@ -1,3 +1,28 @@
+# ------------------------------------------------------------------
+# ticket_pdf.py — Boleta PDF imprimible (fpdf2).
+#
+# Decisiones de diseño (el porqué, no el qué):
+# - Tamaño 1/3 de A4: es el formato físico real de la constancia de
+#   una mesa de partes (una tira que se entrega al usuario como
+#   comprobante), no una hoja completa desperdiciada.
+# - fpdf2 usa Helvetica, que SOLO imprime latin-1. Esa limitación es
+#   la RAZÓN de toda la cadena de validadores latinos: esta capa
+#   confía en que lo que recibe ya es imprimible (defensa en capas:
+#   validadores primero, try/except en ticket() como red de
+#   seguridad).
+# - fecha_legible() convierte ISO a formato peruano y TOLERA datos
+#   corruptos: la boleta es para un humano, no para una base de
+#   datos; si el dato fue editado a mano y no se puede convertir,
+#   mejor mostrar el texto crudo que reventar el ticket.
+# - Los valores vacíos se imprimen como texto representativo ("AÚN
+#   NO RESUELTO", "(no registrado)"): un campo en blanco en un
+#   documento oficial parece un error de impresión; el texto declara
+#   explícitamente que el dato aún no existe.
+# - auto_page_break: si un asunto larguísimo no cabe en los 99 mm se
+#   imprime una segunda boleta, no texto cortado en el borde: la
+#   información SIEMPRE queda completa.
+# ------------------------------------------------------------------
+
 from datetime import datetime
 
 from fpdf import FPDF
@@ -59,7 +84,14 @@ def generar_pdf(expediente, ruta):
     # ---------------- Encabezado ----------------
     # (Reemplaza "MESA DE PARTES DIGITAL" por el nombre de tu institución)
     pdf.set_font("helvetica", "B", 13)
-    pdf.cell(0, 6, "MESA DE PARTES DIGITAL", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(
+        0,
+        6,
+        "MESA DE PARTES DIGITAL UPN (Prototipo)",
+        align="C",
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
     pdf.set_font("helvetica", "", 9)
     pdf.cell(
         0,

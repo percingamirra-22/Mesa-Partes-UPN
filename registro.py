@@ -1,3 +1,31 @@
+# ------------------------------------------------------------------
+# registro.py — Operaciones de negocio de la mesa de partes.
+#
+# Decisiones de lógica (el porqué, no el qué):
+# - Catálogos CERRADOS: el usuario elige por número y nunca escribe
+#   libre los tipos/áreas. Así el dato guardado es siempre un valor
+#   conocido: se puede comparar con == (filtrar), se muestra siempre
+#   igual y siempre es imprimible en el PDF. La validación libre
+#   queda solo para los campos que de verdad son libres.
+# - El correo es obligatorio SOLO si no hay teléfono: la regla de
+#   contacto es "al menos uno de los dos", no "ambos".
+# - El código se calcula buscando el MAYOR del año en la base, no con
+#   un contador en memoria: un contador se pierde al cerrar el
+#   programa y duplicaría códigos al reabrir. Con 7 dígitos fijos,
+#   además, el orden alfabético del código = orden cronológico.
+# - registrar()/resolver() devuelven True SOLO si el expediente
+#   cambió de verdad: con ese bool main decide si guardar. Esa es la
+#   señal que sostiene la política "guardar tras cada cambio real":
+#   no se guarda de más ni de menos.
+# - El ticket son DOS archivos con la misma marca de tiempo: el TXT
+#   es el respaldo plano (siempre sale) y el PDF es la boleta
+#   imprimible. Si el PDF falla (V1: fpdf2 no imprime no latinos), el
+#   TXT ya existe: la constancia no se pierde.
+# - exportar() NO reimprime el CSV: reutiliza guardar(), porque la
+#   base y la copia exportada comparten formato exacto (mismo
+#   encabezado y mismo BOM). Una sola función que escribe CSV.
+# ------------------------------------------------------------------
+
 from datetime import datetime
 from pathlib import Path
 
@@ -40,6 +68,14 @@ AREAS = [
     "ADMINISTRACIÓN",
     "TI",
 ]
+
+# CANCELAR vive ahora en interfaz.py. Los alfabetos de validación
+# (DIGITOS, LETRAS_LATINAS, SIMBOLOS_LIBRES) viven en validadores.py.
+
+
+# Las funciones de captura por consola (pedir_texto, pedir_opcion y
+# anular_registro) ahora viven en interfaz.py; los validadores de datos
+# viven en validadores.py. registro.py solo los importa y los usa.
 
 
 # ------------------------------------------------------------------
@@ -170,6 +206,10 @@ def registrar(lista):
         anular_registro()
         return
 
+    # Normalización de folios: se acepta "0005" (int() lo entiende),
+    # pero se guarda "5". El dato es el mismo y la base queda limpia.
+    numero_folios = str(int(numero_folios))
+
     # ---- Generación del código (con protección contra datos corruptos) ----
     anio = datetime.now().year
     mayor = 0
@@ -208,6 +248,9 @@ def registrar(lista):
 
 
 def buscar(lista):
+    """Busca por código EXACTO en mayúsculas: el código lo genera el
+    programa (EXP-AAAA-NNNNNNN), así que no hay que "adivinar" con
+    subcadenas ni ignorar mayúsculas; o es ese código o no existe."""
     codigo = input("Código a buscar: ").strip().upper()
 
     for expediente in lista:
@@ -262,6 +305,9 @@ def resolver(lista):
 
 
 def listar(lista):
+    """Tabla resumida de 5 columnas y no los 16 campos: en consola
+    una tabla ancha no cabe ni se lee; el detalle completo está en
+    buscar() y en el ticket."""
     if not lista:
         print("No hay expedientes.")
         return
@@ -288,6 +334,10 @@ def listar(lista):
 
 
 def filtrar(lista):
+    """Filtra por igualdad exacta del catálogo AREAS: como el área
+    siempre salió de un menú, el dato es canónico y basta un ==;
+    comparar por subcadena o en minúsculas sobra y daría falsos
+    positivos."""
     if not lista:
         print("No hay expedientes.")
         return
@@ -315,6 +365,11 @@ def filtrar(lista):
 
 
 def ordenar(lista, campo):
+    """Ordena una COPIA, no la lista original: ordenar es solo una
+    vista para el usuario; reordenar la base en memoria sería un
+    efecto colateral invisible. Burbuja porque es el algoritmo del
+    curso y el volumen de una mesa de partes (decenas a miles) lo
+    hace irrelevante en costo."""
     if not lista:
         print("No hay expedientes.")
         return
@@ -346,6 +401,10 @@ def ordenar(lista, campo):
 
 
 def ticket(lista):
+    """Genera el TXT (respaldo plano) y el PDF (boleta) con la MISMA
+    marca de tiempo: quedan emparejados y se puede auditar qué boleta
+    salió de qué generación. El TXT se escribe primero: si el PDF
+    falla, la constancia ya existe (V1, ver cabecera del archivo)."""
     codigo = input("Código para generar ticket: ").strip().upper()
 
     for expediente in lista:
@@ -365,9 +424,19 @@ def ticket(lista):
                 for campo, valor in expediente.items():
                     archivo.write(f"{campo}: {valor}\n")
 
-            # 2) Boleta PDF 1/3 de A4: documento imprimible
+            # 2) Boleta PDF 1/3 de A4: documento imprimible.
+            # Segunda capa de defensa (V1): si el expediente tiene un
+            # dato corrupto que fpdf2 no puede imprimir (p. ej. un correo
+            # con caracteres no latinos inyectado a mano en el CSV), el
+            # TXT ya quedó generado y aquí se avisa en lugar de morir
+            # con un traceback.
             ruta_pdf = carpeta / f"ticket_{codigo}_{momento}.pdf"
-            generar_pdf(expediente, ruta_pdf)
+            try:
+                generar_pdf(expediente, ruta_pdf)
+            except Exception as error:
+                print("ERROR: no se pudo generar el PDF del ticket.")
+                print("Revise los datos del expediente (p. ej. el correo):", error)
+                return
 
             print("Ticket TXT generado:", ruta_txt)
             print("Ticket PDF generado:", ruta_pdf)

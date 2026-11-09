@@ -1,0 +1,47 @@
+# =============================================================
+# .gitignore — Archivos que Git NUNCA debe subir al repositorio.
+# Regla de oro: al repositorio solo entra lo que un compañero
+# necesita para reconstruir el proyecto desde cero: código fuente,
+# requirements.txt, README y LICENSE. Todo lo demás es de cada máquina.
+# =============================================================
+
+# ---- 1) Entorno virtual ----
+# La carpeta del entorno virtual pesa decenas de MB y contiene
+# binarios de TU máquina (tú ejecutable de Python, .dll, etc.):
+# es reconstruible con "python -m venv" + "pip install -r requirements.txt".
+# Se ignoran todos los nombres comunes de venv para cubrir
+# cualquier nombre que use cada compañero.
+.venv/
+venv/
+env/
+ENV/
+virtualenv/
+
+# ---- 2) Caché de Python ----
+# Python genera __pycache__/. Los .pyc son bytecode compilado:
+# desechable, regenerable y específico de cada versión de Python.
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---- 3) Datos generados por el programa en ejecución ----
+# expedientes.csv es la "base de datos" local: cada compañero
+# genera la suya al probar. Subirla causaría conflictos de fusión
+# (dos máquinas modificando el mismo CSV) y mezclaría los datos
+# de prueba de todos. tickets/ y expedientes/ son salidas del
+# programa: igualmente de cada máquina.
+expedientes.csv
+expedientes/
+tickets/
+
+# Temporal del guardado atómico: si el proceso muere a media escritura
+# puede quedar un .tmp en el disco; nunca debe subirse al repositorio.
+*.tmp
+
+# ---- 4) Editores y sistemas operativos ----
+# Configuración personal del editor y archivos basura del SO.
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store

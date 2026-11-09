@@ -2,9 +2,20 @@
 # interfaz.py — Capa de conversación con el usuario: menús numerados,
 # re-pregunta ante errores y cancelación con CANCELAR.
 #
-# Depende solo de validadores.py (para verificar que la opción elegida
-# del menú es un número válido). Es la única capa que habla con el
-# usuario en la captura de datos: registro y main la usan, nunca al revés.
+# Decisiones de lógica (el porqué, no el qué):
+# - RE-PREGUNTAR en bucle y NO abortar ante un dato inválido: errar
+#   es lo NORMAL en captura manual; matar el programa obligaría a
+#   empezar de cero.
+# - CANCELAR como palabra de salida en cada pregunta: en consola no
+#   hay botón "cancelar"; sin una palabra mágica, el usuario atrapado
+#   en la re-pregunta no podría escapar.
+# - pedir_texto/pedir_opcion devuelven None para "cancelado": así el
+#   llamador decide QUÉ significa cancelar (anular todo el registro
+#   en registrar(), o solo esa operación en filtrar/ordenar/exportar)
+#   con un único "if valor is None".
+# - Depende solo de validadores.py: la conversación no conoce reglas
+#   de negocio, solo pregunta y re-pregunta. registro y main la usan,
+#   nunca al revés.
 # ------------------------------------------------------------------
 
 from validadores import solo_digitos
